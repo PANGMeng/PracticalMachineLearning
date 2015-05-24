@@ -124,9 +124,17 @@ confusionMatrix(testing$predicted,testing$classe)
 ```
 
 The random forest model showed an accuracy of ~ 99.76% with a confidence interval   
-of (99.57%, 99.87%).
+of (99.57%, 99.87%) at 95% Confidence
 
-**Out of Sample Error was (1-0.9976) = 0.0024 or 0.24% **
+###Out of Sample Error 
+
+Out of sample error in the testing section was (1-0.9976) = 0.0024 or 0.24% for this random forest model.  
+The confidence interval for out-of-sample error rate was (0.13% , 0.43% )  
+
+At this out-of-sample error rate, when run on the final testing set of size 20, I expect the number of   
+inaccurate results to be 0.0024*20 = 0.05.  
+As a confidence interval the number of errors is predicted to be between 0.026 and 0.086 , out of 20 .  
+In other words ZERO wrong predictions are expected
 
 ```{r RANDOM_FOREST_PLOT}
 plot(rfMdl, log="y")
@@ -149,4 +157,5 @@ testingFinal$classe<-predict(rfMdlFinal,newdata=testingFinal)
 
 ### CONCLUSION
 
-The random forest model, without any preprocessing or resampling during model fit predicted all 20 items in the test set correctly.
+The random forest model, without any preprocessing or resampling during model fit predicted all 20 items in the test set correctly.  
+The out-of-sample error rate in a dataset of size 20 was zero as expected.
