@@ -108,7 +108,7 @@ This model showed an improved accuracy of ~55% - better but still terrible
 
 #### Random Forest Model  
 
-Next git a random forest model. This took several hours to run so I am using the
+Next fit a random forest model. This took several hours to run so I am using the
 saved model for this presentation.
 
 ```{r RANDOM_FOREST_TRAINING}
