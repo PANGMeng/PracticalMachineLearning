@@ -16,3 +16,5 @@ vignettes/*.pdf
 *.rds
 RandomForest*
 
+Index_cache/*
+Index_cache/html/*
