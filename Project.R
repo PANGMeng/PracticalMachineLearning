@@ -39,7 +39,8 @@ if(!file.exists("test.rds")){
 set.seed(34455)
 ## -----------Cleaning DATA---------------------
 #Order by username and timestamp
-tidyTrain<-arrange(trainAll, user_name,num_window, raw_timestamp_part_1, raw_timestamp_part_2);
+#tidyTrain<-arrange(trainAll, user_name,num_window, raw_timestamp_part_1, raw_timestamp_part_2);
+tidyTrain<-trainAll
 tidyTrain$X<-NULL # remove sequence number from data
 # remove user_name, and num_window from dataset
 tidyTrain$user_name<-NULL
@@ -82,17 +83,26 @@ confusionMatrix(testing$predicted,testing$classe)
 #Shows a better accuracy of 65% better
 
 #Fit a randomForest model to data
-rfMdl<-train(classe~.,method="rf",data=training)
+if(file.exists("RandomForestModelFit")) {
+  rfMdl<-readRDS("RandomForestModelFit")
+} else {
+  rfMdl<-train(classe~.,method="rf",data=training) # Train Model
+}
+
 testing$predicted<-predict(rfMdl, newdata = testing)
 table(testing$predicted,testing$classe)
 confusionMatrix(testing$predicted,testing$classe)
 #Random forest model had an accuracy of 99%
 
 
-#fitControl <- trainControl(method = "repeatedcv",number = 10,  repeats = 10)
+#fitControl <- trainControl(method = "repeatedcv",number = 4,  repeats = 4)
 
 #For the final model - lets train it on the entire testing dataset
+if(file.exists("RandomForest")) {
+  rfMdlFinal<-readRDS("RandomForest")
+} else {
   rfMdlFinal <-train(classe~., method="rf",data=tidyTrain)
+}
 
 # Predict testing set with Random Forest Model
 testingFinal$classe<-predict(rfMdlFinal,newdata=testingFinal)

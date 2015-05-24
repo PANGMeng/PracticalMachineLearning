@@ -1,0 +1,152 @@
+---
+title: "R Gym Trainer"
+author: "Tanveer Ansari"
+date: "Saturday, May 23, 2015"
+output: html_document
+---
+### Who needs a personal trainer when you have R 
+###  and the IOT(Internet of Things)
+
+This project attempts to predict if test subjects are performing barbell curls correctly   
+and if not to predict what type of mistake they are doing. This information is taken  
+from [Human Activity Recognition](http://groupware.les.inf.puc-rio.br/har
+
+```{r IMPORTS,results='hide',message=FALSE,warning=FALSE,include=FALSE}
+require(dplyr); require(data.table);require(RCurl)
+require(caret);require(rattle);require(knitr);require(rpart);
+```
+
+`r opts_chunk$set(cache=TRUE)`
+
+### Load and Clean Data
+```{r DOWNLOAD_DATA, cache=TRUE}
+if(!file.exists("train.rds")){
+  trainURL<-getURL("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv")
+  trainAll<-read.csv(text=trainURL)
+  saveRDS(trainAll,"train.rds")
+  } else {
+    trainAll<-readRDS("train.rds") ##Training dataset
+    }
+
+if(!file.exists("test.rds")){
+  testURL<-getURL("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv")
+  testingFinal<-read.csv(text=testURL)
+  saveRDS(testingFinal,"test.rds")
+  } else {
+    testingFinal<-readRDS("test.rds")  ## Testing dataset
+    }
+```
+
+
+**Remove irrelevant columns  **  
+1. Remove the column X - this is the order in which the data is presented  
+2. Remove the user_name and num_window columns - I do not believe they are relevants as factors  
+3. Remove all timestamp columns - this analysis did not treat this data as time series data  
+
+```{r REMOVE_USELESS_VARS}
+tidyTrain<-trainAll
+tidyTrain$X<-NULL # remove sequence number from data
+tidyTrain$user_name<-NULL
+tidyTrain$num_window<-NULL
+# remove timestamp columns from dataset
+tidyTrain<-tidyTrain[,-grep("time",names(tidyTrain))]
+```
+
+**Remove fields with minimal variance** - most likely these are not good predictors
+```{r REMOVE_NEAR_ZERo_VARIANCE}
+nzv<-nearZeroVar(tidyTrain)
+removedCols<-names(tidyTrain)[nzv] # Print names of removed columns
+tidyTrain<-(tidyTrain[,-nzv])
+head(removedCols)
+```
+
+**Remove fields that are mostly NAs.**  
+I chose 97% NAs as the threshold for removal
+```{r REMOVENULLS}
+nullMoreThan97<-apply(tidyTrain,2,function(x){as.logical(sum(is.na(x))/length(x) > 0.975)})
+#which(nullMoreThan97)
+tidyTrain<-tidyTrain[,-which(nullMoreThan97)]
+```
+
+### Split data for cross validation   
+
+The training data was split up into a training and a test set in a 75/25 split
+```{r CROSSVALIDATION}
+set.seed(34455) # Set seed so results are reproducible
+trainIndex <- createDataPartition(y=tidyTrain$classe, p=0.75, list=FALSE)
+training<- tidyTrain[trainIndex,]
+testing<- tidyTrain[-trainIndex,]
+```
+
+### Model Fitting  
+
+#### Decision Tree Models
+
+I first fit a decision tree model to the training subset and evaluated its accuracy
+```{r DECISION_TREE}
+rpMdl<-train(classe~.,method="rpart",data=training) # Train Model 
+testing$predicted <- predict(rpMdl, newdata = testing) # Predict on testing subset
+fancyRpartPlot(rpMdl$finalModel)
+```
+
+This looks promising, lets check accuracy
+```{r DECISION_TREE_ACCURACY}
+table(testing$predicted,testing$classe)
+confusionMatrix(testing$predicted,testing$classe) # Evaluate prediction accuracy on test set
+```
+
+The accuracy was ~49% for my run - terrible.  
+Next lets fit another decision tree , this time using rpart2 instead of rpart
+
+```{r DECISION_TREE2}
+rpMdl<-train(classe~.,method="rpart2",data=training) # Train Model 
+testing$predicted <- predict(rpMdl, newdata = testing) # Predict on testing subset
+confusionMatrix(testing$predicted,testing$classe)
+```
+
+This model showed an improved accuracy of ~55% - better but still terrible
+
+#### Random Forest Model  
+
+Next git a random forest model. This took several hours to run so I am using the
+saved model for this presentation.
+
+```{r RANDOM_FOREST_TRAINING}
+if(file.exists("RandomForestModelFit")) {
+  rfMdl<-readRDS("RandomForestModelFit")
+  } else {
+    rfMdl<-train(classe~.,method="rf",data=training) # Train Model 
+    }
+
+testing$predicted<-predict(rfMdl, newdata = testing)# Predict on testing subset
+table(testing$predicted,testing$classe) # Evaluate prediction accuracy on test set
+confusionMatrix(testing$predicted,testing$classe) 
+```
+
+The random forest model showed an accuracy of ~ 99.76% with a confidence interval   
+of (99.57%, 99.87%).
+
+**Out of Sample Error was (1-0.9976) = 0.0024 or 0.24% **
+
+```{r RANDOM_FOREST_PLOT}
+plot(rfMdl, log="y")
+#varImpPlot(rfMdl)
+```
+
+### FINAL MODEL FOR PREDICTION  
+ For the final model - train it on the entire test dataset available, not just the training split
+
+```{r FINAL_MODEL}
+if(file.exists("RandomForest")) {
+  rfMdlFinal<-readRDS("RandomForest")
+} else {
+  rfMdlFinal <-train(classe~., method="rf",data=tidyTrain)
+}
+
+# Predict testing set with Random Forest Model
+testingFinal$classe<-predict(rfMdlFinal,newdata=testingFinal)
+```
+
+### CONCLUSION
+
+The random forest model, without any preprocessing or resampling during model fit predicted all 20 items in the test set correctly.
